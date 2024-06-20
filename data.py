@@ -38,18 +38,14 @@ def main():
     # Plot closing price
     st.write('**Closing Price Chart:**')
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(combined_data['Date'], combined_data['Close'], label='AAPL Close Price')
+    ax.plot(pd.to_datetime(combined_data['Date']), combined_data['Close'], label='AAPL Close Price')  # Convert 'Date' to datetime
     ax.set_title('Apple Inc. (AAPL) Stock Closing Price')
     ax.set_xlabel('Date')
     ax.set_ylabel('Closing Price (USD)')
     ax.legend()
-    
+
     # Display Matplotlib plot
     st.pyplot(fig)
-    
-    # Clear the Matplotlib figure to prevent errors
-    plt.close(fig)
-
 
 if __name__ == '__main__':
     main()
