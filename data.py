@@ -43,7 +43,13 @@ def main():
     ax.set_xlabel('Date')
     ax.set_ylabel('Closing Price (USD)')
     ax.legend()
+    
+    # Display Matplotlib plot
     st.pyplot(fig)
+    
+    # Clear the Matplotlib figure to prevent errors
+    plt.close(fig)
+
 
 if __name__ == '__main__':
     main()
