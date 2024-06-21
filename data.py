@@ -3,24 +3,28 @@ import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 from github import Github
-from datetime import datetime, timedelta
+import os
 
-# GitHub repository information
-repo_owner = "DataSymphonist-Pranav"  # Replace with your GitHub username
-repo_name = "data"  # Replace with your repository name
+# Function to get the GitHub token from Streamlit secrets
+def get_github_token():
+    return st.secrets["GITHUB_TOKEN"]
 
-# GitHub authentication
-github_token = st.secrets["GITHUB_TOKEN"]
-g = Github(github_token)
+# Function to get the repository
+def get_repo(github_token, repo_name):
+    g = Github(github_token)
+    repo = g.get_user().get_repo(repo_name)
+    return repo
 
-# Function to load historical data from Yahoo Finance
-@st.cache_data
-def load_historical_data(ticker_symbol, start_date):
-    ticker = yf.Ticker(ticker_symbol)
-    historical_data = ticker.history(start=start_date, end=datetime.now().strftime('%Y-%m-%d'))
-    return historical_data
+# Load historical data from the CSV file
+def load_data(csv_file):
+    data = pd.read_csv(csv_file)
+    return data
 
-# Function to update historical data with live data
+# Save data to CSV file
+def save_data(csv_file, data):
+    data.to_csv(csv_file, index=False)
+
+# Update historical data with live data
 def update_data(historical_data, ticker_symbol):
     ticker = yf.Ticker(ticker_symbol)
     live_data = ticker.history(period='1d', interval='1m')
@@ -30,63 +34,55 @@ def update_data(historical_data, ticker_symbol):
     combined_data.reset_index(drop=True, inplace=True)
     return combined_data
 
-# Function to save DataFrame to GitHub as a CSV file
-def save_to_github(dataframe, repo, file_name):
-    csv_content = dataframe.to_csv(index=False)
-    try:
-        contents = repo.get_contents(file_name)
-        repo.update_file(contents.path, "Updated historical data", csv_content, contents.sha)
-    except:
-        repo.create_file(file_name, "Created historical data CSV file", csv_content)
-
 # Main function
 def main():
     st.title('Stock Analysis')
 
     # User input for ticker symbol
-    ticker_symbol = st.text_input('Enter the ticker symbol:', 'AAPL').upper()
-    
-    if ticker_symbol:
-        # File name based on ticker symbol
-        file_name = f"{ticker_symbol}_historical_data.csv"
-        
-        # Load historical data from GitHub if it exists
-        repo = g.get_user(repo_owner).get_repo(repo_name)
+    ticker_symbol = st.text_input('Enter the ticker symbol:', 'AAPL')
+
+    # Fetch historical data
+    ticker = yf.Ticker(ticker_symbol)
+    historical_data = ticker.history(period='max')
+
+    # Save historical data to CSV file
+    csv_file = f'{ticker_symbol}_stock_data.csv'
+    if not os.path.exists(csv_file):
+        save_data(csv_file, historical_data)
+
+    # Load historical data
+    historical_data = load_data(csv_file)
+
+    # Update historical data with live data
+    combined_data = update_data(historical_data, ticker_symbol)
+
+    # Save the updated data
+    save_data(csv_file, combined_data)
+
+    # Display combined data
+    st.write('**Combined Data:**')
+    st.write(combined_data)
+
+    # Plot closing price
+    st.write('**Closing Price Chart:**')
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(combined_data.index, combined_data['Close'], label=f'{ticker_symbol} Close Price')
+    ax.set_title(f'{ticker_symbol} Stock Closing Price')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Closing Price (USD)')
+    ax.legend()
+    st.pyplot(fig)
+
+    # Upload the CSV file to GitHub
+    github_token = get_github_token()
+    repo = get_repo(github_token, 'data')
+    with open(csv_file, 'r') as file:
+        content = file.read()
         try:
-            contents = repo.get_contents(file_name)
-            historical_data = pd.read_csv(contents.download_url, parse_dates=['Date'])
-            last_date = historical_data['Date'].max()
-            start_date = (last_date + timedelta(days=1)).strftime('%Y-%m-%d')
+            contents = repo.get_contents(csv_file)
+            repo.update_file(contents.path, f"Update {ticker_symbol} data", content, contents.sha)
         except:
-            historical_data = pd.DataFrame()
-            start_date = '1900-01-01'  # Fetch data from the earliest available date
-
-        # Fetch and append new data
-        new_data = load_historical_data(ticker_symbol, start_date)
-        if not historical_data.empty:
-            historical_data = pd.concat([historical_data, new_data])
-        else:
-            historical_data = new_data
-
-        # Save updated historical data to GitHub
-        save_to_github(historical_data, repo, file_name)
-        
-        # Update historical data with live data
-        combined_data = update_data(historical_data, ticker_symbol)
-
-        # Display combined data
-        st.write('**Combined Data:**')
-        st.write(combined_data)
-
-        # Plot closing price
-        st.write('**Closing Price Chart:**')
-        fig, ax = plt.subplots(figsize=(12, 6))
-        ax.plot(combined_data.index, combined_data['Close'], label=f'{ticker_symbol} Close Price')
-        ax.set_title(f'{ticker_symbol} Stock Closing Price')
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Closing Price (USD)')
-        ax.legend()
-        st.pyplot(fig)
+            repo.create_file(csv_file, f"Create {ticker_symbol} data", content)
 
 if __name__ == '__main__':
     main()
