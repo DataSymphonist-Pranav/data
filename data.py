@@ -6,8 +6,8 @@ from github import Github
 from datetime import datetime, timedelta
 
 # GitHub repository information
-repo_owner = "your_username"  # Replace with your GitHub username
-repo_name = "your_repository_name"  # Replace with your repository name
+repo_owner = "DataSymphonist-Pranav"  # Replace with your GitHub username
+repo_name = "data"  # Replace with your repository name
 
 # GitHub authentication
 github_token = st.secrets["GITHUB_TOKEN"]
